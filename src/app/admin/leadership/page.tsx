@@ -1,23 +1,42 @@
-import { prisma } from "@/lib/prisma";
-import { AdminCrudTable } from "@/components/admin/admin-crud";
+// src/app/admin/leadership/page.tsx
+"use client";
 
-export default async function AdminLeadershipPage() {
-  const rows = await prisma.leadershipMember.findMany({ orderBy: { sortOrder: "asc" } });
+import { useEffect, useState } from "react";
+import CrudTable, { FieldDef } from "@/components/admin/CrudTable";
+
+const fields: FieldDef[] = [
+  { key: "name", label: "Name", type: "text" },
+  { key: "role", label: "Role", type: "text" },
+  { key: "bio", label: "Bio", type: "textarea" },
+  { key: "avatarUrl", label: "Avatar", type: "image" },
+  { key: "visible", label: "Visible", type: "boolean" },
+  { key: "sortOrder", label: "Order", type: "number" },
+];
+
+export default function LeadershipPage() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/leadership");
+      const json = await res.json();
+      setRows(json.data ?? []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
 
   return (
-    <AdminCrudTable
-      title="Team Members"
-      subtitle="Create, edit, and reorder items using the sort order field."
-      endpoint="/api/admin/leadership"
-      fields={[
-        { key: "name", label: "name", widthClassName: "min-w-[180px]" },
-        { key: "role", label: "role", widthClassName: "min-w-[180px]" },
-        { key: "bio", label: "department", widthClassName: "min-w-[260px]" },
-        { key: "avatarUrl", label: "image_path", type: "image", uploadFolder: "leadership", widthClassName: "min-w-[260px]" },
-        { key: "visible", label: "visible", type: "boolean", widthClassName: "min-w-[120px]" },
-        { key: "sortOrder", label: "sort_order", type: "number", widthClassName: "min-w-[140px]" }
-      ]}
-      initialRows={rows}
-    />
+    <div>
+      <h1 className="font-display font-bold text-3xl text-avnt-text mb-2">Team Members</h1>
+      <p className="text-avnt-muted text-sm mb-6">Leadership members shown on the homepage.</p>
+      {loading ? <div className="text-avnt-muted">Loading…</div> : (
+        <CrudTable rows={rows} fields={fields} resourcePath="/api/admin/leadership" onRefresh={load} />
+      )}
+    </div>
   );
 }

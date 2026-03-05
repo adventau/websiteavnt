@@ -1,7 +1,13 @@
-import { getPublicCredibility } from "@/lib/data/public";
-import { ok } from "@/lib/utils/http";
+import { NextResponse } from "next/server";
+import { getPublicCredibility } from "@/lib/public-data";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const data = await getPublicCredibility();
-  return ok(data);
+  try {
+    const data = await getPublicCredibility();
+    return NextResponse.json({ data });
+  } catch {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
 }

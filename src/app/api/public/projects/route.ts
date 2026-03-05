@@ -1,7 +1,14 @@
-import { getPublicProjects } from "@/lib/data/public";
-import { ok } from "@/lib/utils/http";
+// src/app/api/public/projects/route.ts
+import { NextResponse } from "next/server";
+import { getPublicProjects } from "@/lib/public-data";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const data = await getPublicProjects();
-  return ok(data);
+  try {
+    const data = await getPublicProjects();
+    return NextResponse.json({ data });
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
+  }
 }

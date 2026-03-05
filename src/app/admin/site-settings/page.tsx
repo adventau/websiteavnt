@@ -1,218 +1,176 @@
+// src/app/admin/site-settings/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
-type Settings = {
-  brandName: string;
-  logoUrl: string | null;
-  footerText: string;
-  heroHeadline: string;
-  heroSubheadline: string;
-  aboutTitle: string;
-  aboutBody: string;
-  credibilityTitle: string;
-  credibilitySubtitle: string;
-  gamesTitle: string;
-  gamesSubtitle: string;
-  pledgeTitle: string;
-  pledgeSubtitle: string;
-  teamTitle: string;
-  teamSubtitle: string;
-  ctaTitle: string;
-  ctaSubtitle: string;
-};
+const fields = [
+  { key: "brand", label: "Brand Name", type: "text" },
+  { key: "logoUrl", label: "Logo URL", type: "url" },
+  { key: "heroTitle", label: "Hero Title", type: "text" },
+  { key: "heroSubtitle", label: "Hero Subtitle", type: "textarea" },
+  { key: "heroCta", label: "Hero CTA Text", type: "text" },
+  { key: "aboutTitle", label: "About Title", type: "text" },
+  { key: "aboutBody", label: "About Body", type: "textarea" },
+  { key: "metricsTitle", label: "Metrics Title", type: "text" },
+  { key: "metricsSubtitle", label: "Metrics Subtitle", type: "text" },
+  { key: "gamesTitle", label: "Games Title", type: "text" },
+  { key: "gamesSubtitle", label: "Games Subtitle", type: "text" },
+  { key: "credTitle", label: "Credibility Title", type: "text" },
+  { key: "teamTitle", label: "Team Title", type: "text" },
+  { key: "teamSubtitle", label: "Team Subtitle", type: "text" },
+  { key: "networkTitle", label: "Network Title", type: "text" },
+  { key: "networkSubtitle", label: "Network Subtitle", type: "text" },
+  { key: "footerText", label: "Footer Text", type: "text" },
+];
 
-function Field({ label, value, onChange, textarea = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm text-[#bdb7d8]">{label}</span>
-      {textarea ? (
-        <textarea
-          className="h-32 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      ) : (
-        <input
-          className="w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-    </label>
-  );
-}
-
-const fallback: Settings = {
-  brandName: "AVNT Brand",
-  logoUrl: null,
-  footerText: "© AVNT Brand — All Rights Reserved",
-  heroHeadline: "Structured leadership for digital communities and independent projects.",
-  heroSubheadline:
-    "AVNT Brand is a professional management and portfolio brand focused on overseeing, organizing, and supporting digital communities and independent projects.",
-  aboutTitle: "About AVNT",
-  aboutBody: "Professional management, intentional staffing, and portfolio oversight.",
-  credibilityTitle: "Credibility",
-  credibilitySubtitle: "Signals of trust: partners, platforms, and milestones.",
-  gamesTitle: "Our Games",
-  gamesSubtitle: "Active portfolio projects and community experiences.",
-  pledgeTitle: "Our Quality Pledge",
-  pledgeSubtitle: "A commitment to structure, security, and high operational standards.",
-  teamTitle: "Our Team",
-  teamSubtitle: "Leadership, operations, and delivery.",
-  ctaTitle: "Join the network",
-  ctaSubtitle: "Get updates, opportunities, and announcements across the AVNT portfolio."
-};
-
-export default function AdminSiteSettingsPage() {
-  const [form, setForm] = useState<Settings>(fallback);
+export default function SiteSettingsPage() {
+  const [data, setData] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch("/api/admin/site-settings", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json?.data) {
-          setForm(json.data as Settings);
-        }
-      })
-      .catch(() => {
-        // Keep defaults if fetch fails.
-      });
-  }, []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/site-settings");
+      const json = await res.json();
+      setData(json.data ?? {});
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  async function save() {
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
     setSaving(true);
-    const res = await fetch("/api/admin/site-settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
-    setSaving(false);
-
-    if (!res.ok) {
-      const err = (await res.json().catch(() => null)) as { error?: string } | null;
-      alert(err?.error ?? "Failed to save site settings.");
-      return;
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/site-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Save failed");
+      setMsg({ type: "success", text: "Settings saved!" });
+    } catch (e: any) {
+      setMsg({ type: "error", text: e.message });
+    } finally {
+      setSaving(false);
     }
+  };
 
-    alert("Site settings updated.");
-  }
-
-  async function uploadLogo(file: File) {
-    setUploadingLogo(true);
-    const contentType = file.type || "application/octet-stream";
-
-    const signRes = await fetch("/api/admin/uploads/sign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        contentType,
-        folder: "logos"
-      })
-    });
-
-    if (!signRes.ok) {
-      setUploadingLogo(false);
-      const err = (await signRes.json().catch(() => null)) as { error?: string } | null;
-      alert(err?.error ?? "Failed to prepare logo upload.");
-      return;
+  const uploadLogo = async (file: File) => {
+    setUploading(true);
+    try {
+      const signRes = await fetch("/api/admin/uploads/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      if (!signRes.ok) throw new Error("Sign failed");
+      const { uploadUrl, publicPath } = await signRes.json();
+      await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      setData((d) => ({ ...d, logoUrl: publicPath }));
+    } catch (e: any) {
+      setMsg({ type: "error", text: `Logo upload failed: ${e.message}` });
+    } finally {
+      setUploading(false);
     }
+  };
 
-    const signJson = (await signRes.json()) as { data?: { uploadUrl: string; publicPath: string } };
-    const uploadUrl = signJson.data?.uploadUrl;
-    const publicPath = signJson.data?.publicPath;
-    if (!uploadUrl || !publicPath) {
-      setUploadingLogo(false);
-      alert("Invalid upload response.");
-      return;
-    }
-
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: file
-    });
-
-    setUploadingLogo(false);
-    if (!uploadRes.ok) {
-      alert("Logo upload failed.");
-      return;
-    }
-
-    setForm((prev) => ({ ...prev, logoUrl: publicPath }));
-    alert("Logo uploaded. Click Save to apply it.");
-  }
+  if (loading) return <div className="text-avnt-muted">Loading…</div>;
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-5xl font-black">Site Settings</h1>
-          <p className="mt-2 text-lg text-muted">Update core content displayed on the public page.</p>
-        </div>
-        <button onClick={save} disabled={saving} className="rounded-full bg-white px-6 py-3 text-sm font-bold text-black" type="button">
-          {saving ? "Saving..." : "Save"}
-        </button>
-      </div>
+    <div className="max-w-2xl">
+      <h1 className="font-display font-bold text-3xl text-avnt-text mb-2">Site Settings</h1>
+      <p className="text-avnt-muted text-sm mb-8">Edit homepage copy and branding.</p>
 
-      <div className="card-avnt grid gap-5 p-6 md:grid-cols-2">
-        <Field label="Brand name" value={form.brandName} onChange={(value) => setForm((prev) => ({ ...prev, brandName: value }))} />
-        <Field
-          label="Logo URL (optional)"
-          value={form.logoUrl ?? ""}
-          onChange={(value) => setForm((prev) => ({ ...prev, logoUrl: value.trim() === "" ? null : value }))}
-        />
-        <div className="md:col-span-2">
-          <label className="block">
-            <span className="mb-2 block text-sm text-[#bdb7d8]">Upload logo file</span>
+      {msg && (
+        <div className={`mb-6 p-3 rounded-lg text-sm border ${
+          msg.type === "success"
+            ? "bg-green-500/10 border-green-500/20 text-green-400"
+            : "bg-red-500/10 border-red-500/20 text-red-400"
+        }`}>
+          {msg.text}
+        </div>
+      )}
+
+      <div className="glass rounded-2xl p-6 space-y-5">
+        {/* Logo upload */}
+        <div>
+          <label className="block text-xs font-semibold text-avnt-muted uppercase tracking-wider mb-2">
+            Logo
+          </label>
+          <div className="flex items-center gap-3">
             <input
+              ref={fileRef}
               type="file"
               accept="image/*"
-              className="w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-sm"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void uploadLogo(file);
-                }
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadLogo(file);
               }}
             />
-          </label>
-          <p className="mt-2 text-sm text-muted">{uploadingLogo ? "Uploading logo..." : "Uploads via Railway bucket."}</p>
-          {form.logoUrl ? (
-            <div className="mt-3 inline-flex items-center gap-3 rounded-xl border border-white/10 bg-black/35 px-3 py-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={form.logoUrl} alt="Logo preview" className="h-12 w-12 rounded-lg object-cover" />
-              <span className="text-sm text-muted">Current logo preview</span>
-            </div>
-          ) : null}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="text-sm text-avnt-purple-light hover:text-white px-3 py-2 border border-avnt-border rounded-lg transition-colors"
+            >
+              {uploading ? "Uploading…" : "Upload Logo"}
+            </button>
+            <input
+              type="url"
+              value={data.logoUrl ?? ""}
+              onChange={(e) => setData((d) => ({ ...d, logoUrl: e.target.value }))}
+              placeholder="or paste URL"
+              className="flex-1 text-sm bg-avnt-bg2 border border-avnt-border rounded-lg px-3 py-2 text-avnt-text focus:outline-none focus:border-avnt-purple/50"
+            />
+          </div>
         </div>
-        <Field label="Footer" value={form.footerText} onChange={(value) => setForm((prev) => ({ ...prev, footerText: value }))} />
-        <div className="md:col-span-2">
-          <Field label="Hero headline" value={form.heroHeadline} onChange={(value) => setForm((prev) => ({ ...prev, heroHeadline: value }))} />
+
+        {fields.filter((f) => f.key !== "logoUrl").map((f) => (
+          <div key={f.key}>
+            <label className="block text-xs font-semibold text-avnt-muted uppercase tracking-wider mb-2">
+              {f.label}
+            </label>
+            {f.type === "textarea" ? (
+              <textarea
+                value={data[f.key] ?? ""}
+                onChange={(e) => setData((d) => ({ ...d, [f.key]: e.target.value }))}
+                rows={3}
+                className="w-full text-sm bg-avnt-bg2 border border-avnt-border rounded-lg px-3 py-2 text-avnt-text focus:outline-none focus:border-avnt-purple/50 resize-none"
+              />
+            ) : (
+              <input
+                type={f.type === "url" ? "url" : "text"}
+                value={data[f.key] ?? ""}
+                onChange={(e) => setData((d) => ({ ...d, [f.key]: e.target.value }))}
+                className="w-full text-sm bg-avnt-bg2 border border-avnt-border rounded-lg px-3 py-2 text-avnt-text focus:outline-none focus:border-avnt-purple/50"
+              />
+            )}
+          </div>
+        ))}
+
+        <div className="pt-2">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-6 py-2.5 bg-avnt-purple hover:bg-purple-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Settings"}
+          </button>
         </div>
-        <div className="md:col-span-2">
-          <Field label="Hero subheadline" value={form.heroSubheadline} onChange={(value) => setForm((prev) => ({ ...prev, heroSubheadline: value }))} textarea />
-        </div>
-        <Field label="About title" value={form.aboutTitle} onChange={(value) => setForm((prev) => ({ ...prev, aboutTitle: value }))} />
-        <Field label="Credibility title" value={form.credibilityTitle} onChange={(value) => setForm((prev) => ({ ...prev, credibilityTitle: value }))} />
-        <div className="md:col-span-2">
-          <Field label="About body" value={form.aboutBody} onChange={(value) => setForm((prev) => ({ ...prev, aboutBody: value }))} textarea />
-        </div>
-        <div className="md:col-span-2">
-          <Field label="Credibility subtitle" value={form.credibilitySubtitle} onChange={(value) => setForm((prev) => ({ ...prev, credibilitySubtitle: value }))} />
-        </div>
-        <Field label="Games title" value={form.gamesTitle} onChange={(value) => setForm((prev) => ({ ...prev, gamesTitle: value }))} />
-        <Field label="Games subtitle" value={form.gamesSubtitle} onChange={(value) => setForm((prev) => ({ ...prev, gamesSubtitle: value }))} />
-        <Field label="Pledge title" value={form.pledgeTitle} onChange={(value) => setForm((prev) => ({ ...prev, pledgeTitle: value }))} />
-        <Field label="Pledge subtitle" value={form.pledgeSubtitle} onChange={(value) => setForm((prev) => ({ ...prev, pledgeSubtitle: value }))} />
-        <Field label="Team title" value={form.teamTitle} onChange={(value) => setForm((prev) => ({ ...prev, teamTitle: value }))} />
-        <Field label="Team subtitle" value={form.teamSubtitle} onChange={(value) => setForm((prev) => ({ ...prev, teamSubtitle: value }))} />
-        <Field label="CTA title" value={form.ctaTitle} onChange={(value) => setForm((prev) => ({ ...prev, ctaTitle: value }))} />
-        <Field label="CTA subtitle" value={form.ctaSubtitle} onChange={(value) => setForm((prev) => ({ ...prev, ctaSubtitle: value }))} />
       </div>
-    </section>
+    </div>
   );
 }

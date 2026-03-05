@@ -1,26 +1,32 @@
-import { metricSchema } from "@/lib/schemas/common";
-import { slugifyMetricKey } from "@/lib/metrics";
+// src/app/api/admin/metrics/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { fail, ok } from "@/lib/utils/http";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { MetricSchema } from "@/lib/schemas";
 
-export async function GET() {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  return ok(await prisma.metric.findMany({ orderBy: { sortOrder: "asc" } }));
+  const metrics = await prisma.metric.findMany({
+    orderBy: [{ sortOrder: "asc" }],
+  });
+  return NextResponse.json({ data: metrics });
 }
 
-export async function POST(req: Request) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  const input = (await req.json()) as Record<string, unknown>;
-  const payload = metricSchema.safeParse({
-    ...input,
-    key: typeof input.key === "string" && input.key.trim() ? input.key : slugifyMetricKey(String(input.label ?? "metric"))
-  });
-  if (!payload.success) return fail(payload.error.message, 422);
+  const body = await req.json();
+  const parsed = MetricSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.errors[0].message },
+      { status: 422 }
+    );
+  }
 
-  return ok(await prisma.metric.create({ data: payload.data }));
+  const metric = await prisma.metric.create({ data: parsed.data });
+  return NextResponse.json({ data: metric }, { status: 201 });
 }

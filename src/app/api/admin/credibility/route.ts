@@ -1,21 +1,21 @@
-import { credibilitySchema } from "@/lib/schemas/common";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { fail, ok } from "@/lib/utils/http";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { CredibilityItemSchema } from "@/lib/schemas";
 
-export async function GET() {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
-
-  return ok(await prisma.credibilityItem.findMany({ orderBy: { sortOrder: "asc" } }));
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+  const data = await prisma.credibilityItem.findMany({ orderBy: [{ sortOrder: "asc" }] });
+  return NextResponse.json({ data });
 }
 
-export async function POST(req: Request) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
-
-  const payload = credibilitySchema.safeParse(await req.json());
-  if (!payload.success) return fail(payload.error.message, 422);
-
-  return ok(await prisma.credibilityItem.create({ data: payload.data }));
+export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+  const body = await req.json();
+  const parsed = CredibilityItemSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 422 });
+  const data = await prisma.credibilityItem.create({ data: parsed.data });
+  return NextResponse.json({ data }, { status: 201 });
 }

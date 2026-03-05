@@ -1,44 +1,61 @@
-import { metricSchema } from "@/lib/schemas/common";
-import { isAutoRobloxMetricKey } from "@/lib/metrics";
+// src/app/api/admin/metrics/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { fail, ok } from "@/lib/utils/http";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { MetricSchema } from "@/lib/schemas";
 
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+const LOCKED_KEYS = ["players_online", "total_visits", "total_favorites"];
 
-  const { id } = await context.params;
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+
+  const { id } = await params;
+  const body = await req.json();
+
+  // Check if this is a locked metric
   const existing = await prisma.metric.findUnique({ where: { id } });
-  if (!existing) {
-    return fail("Metric not found", 404);
+  if (existing && LOCKED_KEYS.includes(existing.key)) {
+    // Only allow sortOrder and visible changes on locked metrics
+    const { sortOrder, visible } = body;
+    const metric = await prisma.metric.update({
+      where: { id },
+      data: {
+        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+        ...(visible !== undefined && { visible: visible === true || visible === "true" }),
+      },
+    });
+    return NextResponse.json({ data: metric });
   }
 
-  const payload = metricSchema.partial().safeParse(await req.json());
-  if (!payload.success) return fail(payload.error.message, 422);
-
-  if (isAutoRobloxMetricKey(existing.key)) {
-    const forbidden = ["label", "value", "key", "trend"].some((field) => field in payload.data);
-    if (forbidden) {
-      return fail("Auto Roblox metrics are read-only. Use Sync Roblox to update them.", 403);
-    }
+  const parsed = MetricSchema.partial().safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.errors[0].message },
+      { status: 422 }
+    );
   }
 
-  return ok(await prisma.metric.update({ where: { id }, data: payload.data }));
+  const metric = await prisma.metric.update({ where: { id }, data: parsed.data });
+  return NextResponse.json({ data: metric });
 }
 
-export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  const { id } = await context.params;
+  const { id } = await params;
   const existing = await prisma.metric.findUnique({ where: { id } });
-  if (!existing) {
-    return fail("Metric not found", 404);
+  if (existing && LOCKED_KEYS.includes(existing.key)) {
+    return NextResponse.json({ error: "Cannot delete locked metric" }, { status: 403 });
   }
-  if (isAutoRobloxMetricKey(existing.key)) {
-    return fail("Auto Roblox metrics cannot be deleted.", 403);
-  }
+
   await prisma.metric.delete({ where: { id } });
-  return ok({ deleted: true });
+  return NextResponse.json({ success: true });
 }

@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,25 +20,25 @@ enum UserRole {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  clerkUserId  String    @unique
-  email        String    @unique
-  name         String?
-  role         UserRole  @default(EDITOR)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  email       String   @unique
+  name        String?
+  role        UserRole @default(EDITOR)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Project {
   id            String        @id @default(cuid())
   title         String
   thumbnailUrl  String?
-  description   String
+  description   String?
   status        ProjectStatus @default(ACTIVE)
-  category      String
+  category      String?
   robloxLink    String?
   robloxPlaceId String?
-  visits        Int           @default(0)
+  visits        BigInt        @default(0)
   favorites     Int           @default(0)
   featured      Boolean       @default(false)
   visible       Boolean       @default(true)
@@ -50,15 +51,15 @@ model Project {
 }
 
 model Metric {
-  id         String   @id @default(cuid())
-  key        String   @unique
-  label      String
-  value      String
-  trend      String?
-  visible    Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  updatedAt  DateTime @updatedAt
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  value     String
+  trend     String?
+  visible   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visible, sortOrder])
 }
@@ -66,8 +67,8 @@ model Metric {
 model OperatingSignal {
   id          String   @id @default(cuid())
   title       String
-  subtitle    String
-  description String
+  subtitle    String?
+  description String?
   visible     Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -77,63 +78,63 @@ model OperatingSignal {
 }
 
 model CredibilityItem {
-  id         String   @id @default(cuid())
-  title      String
-  body       String
-  visible    Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  visible   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visible, sortOrder])
 }
 
 model LeadershipMember {
-  id         String   @id @default(cuid())
-  role       String
-  name       String
-  bio        String
-  avatarUrl  String?
-  visible    Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  role      String
+  name      String
+  bio       String?
+  avatarUrl String?
+  visible   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visible, sortOrder])
 }
 
 model NetworkLink {
-  id         String   @id @default(cuid())
-  label      String
-  url        String
+  id          String   @id @default(cuid())
+  label       String
+  url         String
   description String?
-  visible    Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  visible     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([visible, sortOrder])
 }
 
 model SiteSettings {
-  id                Int      @id @default(1)
-  brandName         String   @default("AVNT Brand")
-  logoUrl           String?
-  footerText        String   @default("© AVNT Brand — All Rights Reserved")
-  heroHeadline      String   @default("Structured leadership for digital communities and independent projects.")
-  heroSubheadline   String   @default("AVNT Brand is a professional management and portfolio brand focused on overseeing, organizing, and supporting digital communities and independent projects.")
-  aboutTitle        String   @default("About AVNT")
-  aboutBody         String   @default("Professional management, intentional staffing, and portfolio oversight.")
-  credibilityTitle  String   @default("Credibility")
-  credibilitySubtitle String @default("Signals of trust: partners, platforms, and milestones.")
-  gamesTitle        String   @default("Our Games")
-  gamesSubtitle     String   @default("Active portfolio projects and community experiences.")
-  pledgeTitle       String   @default("Our Quality Pledge")
-  pledgeSubtitle    String   @default("A commitment to structure, security, and high operational standards.")
-  teamTitle         String   @default("Our Team")
-  teamSubtitle      String   @default("Leadership, operations, and delivery.")
-  ctaTitle          String   @default("Join the network")
-  ctaSubtitle       String   @default("Get updates, opportunities, and announcements across the AVNT portfolio.")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              Int      @id @default(1)
+  brand           String   @default("AVNT")
+  logoUrl         String?
+  heroTitle       String   @default("We Build Worlds That Define Culture")
+  heroSubtitle    String   @default("AVNT is a Roblox game studio and creative collective pushing the boundaries of digital entertainment.")
+  heroCta         String   @default("Explore Our Games")
+  aboutTitle      String   @default("About AVNT")
+  aboutBody       String   @default("We are a team of visionary creators building the next generation of Roblox experiences.")
+  metricsTitle    String   @default("Millions Engage With Our Portfolio")
+  metricsSubtitle String   @default("Real-time data from our live games.")
+  gamesTitle      String   @default("Our Games")
+  gamesSubtitle   String   @default("Explore our portfolio of immersive Roblox experiences.")
+  credTitle       String   @default("Why AVNT")
+  teamTitle       String   @default("Leadership")
+  teamSubtitle    String   @default("The minds behind the movement.")
+  networkTitle    String   @default("Join the Network")
+  networkSubtitle String   @default("Connect with us across platforms.")
+  footerText      String   @default("© 2024 AVNT. All rights reserved.")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

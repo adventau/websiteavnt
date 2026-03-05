@@ -1,30 +1,32 @@
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { getSiteSettings } from "@/lib/data/site-settings";
+// src/app/api/admin/site-settings/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { siteSettingsSchema } from "@/lib/schemas/site-settings";
-import { fail, ok } from "@/lib/utils/http";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { SiteSettingsSchema } from "@/lib/schemas";
 
-export async function GET() {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
-
-  return ok(await getSiteSettings());
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+  const data = await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1 },
+  });
+  return NextResponse.json({ data });
 }
 
-export async function PUT(req: Request) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
-
-  const payload = siteSettingsSchema.safeParse(await req.json());
-  if (!payload.success) {
-    return fail(payload.error.message, 422);
+export async function PUT(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+  const body = await req.json();
+  const parsed = SiteSettingsSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 422 });
   }
-
-  const updated = await prisma.siteSettings.upsert({
+  const data = await prisma.siteSettings.upsert({
     where: { id: 1 },
-    create: { id: 1, ...payload.data },
-    update: payload.data
+    update: parsed.data,
+    create: { id: 1, ...parsed.data },
   });
-
-  return ok(updated);
+  return NextResponse.json({ data });
 }

@@ -1,15 +1,16 @@
-import { reorderByIds } from "@/lib/data/admin";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { reorderSchema } from "@/lib/schemas/common";
-import { fail, ok } from "@/lib/utils/http";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { ReorderSchema } from "@/lib/schemas";
 
-export async function POST(req: Request) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
-
-  const payload = reorderSchema.safeParse(await req.json());
-  if (!payload.success) return fail(payload.error.message, 422);
-
-  await reorderByIds("networkLink", payload.data.ids);
-  return ok({ reordered: true });
+export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
+  const body = await req.json();
+  const parsed = ReorderSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 422 });
+  await prisma.$transaction(
+    parsed.data.ids.map((id, i) => prisma.networkLink.update({ where: { id }, data: { sortOrder: i } }))
+  );
+  return NextResponse.json({ success: true });
 }

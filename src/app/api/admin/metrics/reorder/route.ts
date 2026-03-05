@@ -1,15 +1,24 @@
-import { reorderByIds } from "@/lib/data/admin";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { reorderSchema } from "@/lib/schemas/common";
-import { fail, ok } from "@/lib/utils/http";
+// src/app/api/admin/metrics/reorder/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { ReorderSchema } from "@/lib/schemas";
 
-export async function POST(req: Request) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  const payload = reorderSchema.safeParse(await req.json());
-  if (!payload.success) return fail(payload.error.message, 422);
+  const body = await req.json();
+  const parsed = ReorderSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 422 });
+  }
 
-  await reorderByIds("metric", payload.data.ids);
-  return ok({ reordered: true });
+  await prisma.$transaction(
+    parsed.data.ids.map((id, index) =>
+      prisma.metric.update({ where: { id }, data: { sortOrder: index } })
+    )
+  );
+
+  return NextResponse.json({ success: true });
 }

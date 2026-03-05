@@ -1,55 +1,41 @@
-import { projectSchema } from "@/lib/schemas/project";
+// src/app/api/admin/projects/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureAdminResponse } from "@/lib/auth/route-guard";
-import { getRobloxProjectAutofillByPlaceId, getRobloxThumbnailByPlaceId, robloxGameUrlFromPlaceId } from "@/lib/roblox";
-import { fail, ok } from "@/lib/utils/http";
+import { requireAdmin, isAdminResponse } from "@/lib/admin-guard";
+import { ProjectSchema } from "@/lib/schemas";
 
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  const { id } = await context.params;
-  const payload = projectSchema.partial().safeParse(await req.json());
-  if (!payload.success) {
-    return fail(payload.error.message, 422);
+  const { id } = await params;
+  const body = await req.json();
+  const parsed = ProjectSchema.partial().safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.errors[0].message },
+      { status: 422 }
+    );
   }
 
-  const existing = await prisma.project.findUnique({ where: { id } });
-  if (!existing) {
-    return fail("Project not found", 404);
-  }
-
-  const data = { ...payload.data };
-  const placeId = data.robloxPlaceId ?? existing.robloxPlaceId;
-  if (placeId) {
-    const auto = await getRobloxProjectAutofillByPlaceId(placeId);
-    if (auto?.title && (data.robloxPlaceId || !existing.title)) {
-      data.title = auto.title;
-    }
-    if (auto?.description && (data.robloxPlaceId || !existing.description)) {
-      data.description = auto.description;
-    }
-    if ((data.robloxLink ?? existing.robloxLink) == null) {
-      data.robloxLink = auto?.robloxLink ?? robloxGameUrlFromPlaceId(placeId);
-    }
-    if ((data.thumbnailUrl ?? existing.thumbnailUrl) == null) {
-      data.thumbnailUrl = auto?.thumbnailUrl ?? (await getRobloxThumbnailByPlaceId(placeId));
-    }
-  }
-
-  const updated = await prisma.project.update({
+  const project = await prisma.project.update({
     where: { id },
-    data
+    data: parsed.data as any,
   });
-
-  return ok(updated);
+  return NextResponse.json({ data: project });
 }
 
-export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = await ensureAdminResponse();
-  if (denied) return denied;
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireAdmin();
+  if (isAdminResponse(guard)) return guard;
 
-  const { id } = await context.params;
+  const { id } = await params;
   await prisma.project.delete({ where: { id } });
-  return ok({ deleted: true });
+  return NextResponse.json({ success: true });
 }
